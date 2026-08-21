@@ -10,10 +10,14 @@ interface MatchmakingViewProps {
   onRecordFightResult: (winnerId: string, loserId: string, method: string, roundTime: string) => void;
 }
 
+type CardSection = 'MAIN_EVENT' | 'MAIN_CARD' | 'PRELIMS';
+
 interface BuilderMatch {
   id: string;
   redId: string | null;
   blueId: string | null;
+  section: CardSection;
+  isTitleFight: boolean;
 }
 
 const WEIGHT_CLASSES: WeightClass[] = [
@@ -29,12 +33,11 @@ const WEIGHT_CLASSES: WeightClass[] = [
 
 const makeId = () => `bout-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
 
-// Section a match belongs to, based on its position in the card
-const getSection = (index: number): { label: string; color: string; textColor: string } => {
-  if (index === 0) return { label: 'MAIN EVENT', color: '#e61c24', textColor: '#ffffff' };
-  if (index <= 4) return { label: 'MAIN CARD', color: '#22c55e', textColor: '#052e16' };
-  return { label: 'PRELIMINARES', color: '#eab308', textColor: '#422006' };
-};
+const SECTIONS: { key: CardSection; label: string; color: string; textColor: string }[] = [
+  { key: 'MAIN_EVENT', label: 'MAIN EVENT', color: '#e61c24', textColor: '#ffffff' },
+  { key: 'MAIN_CARD', label: 'MAIN CARD', color: '#22c55e', textColor: '#052e16' },
+  { key: 'PRELIMS', label: 'PRELIMINARES', color: '#eab308', textColor: '#422006' }
+];
 
 export const MatchmakingView: React.FC<MatchmakingViewProps> = ({
   fighters,
@@ -45,7 +48,7 @@ export const MatchmakingView: React.FC<MatchmakingViewProps> = ({
   const [cardLocked, setCardLocked] = useState<boolean>(false);
 
   const [matches, setMatches] = useState<BuilderMatch[]>(() => [
-    { id: makeId(), redId: initialRedCornerId || null, blueId: initialBlueCornerId || null }
+    { id: makeId(), redId: initialRedCornerId || null, blueId: initialBlueCornerId || null, section: 'MAIN_EVENT', isTitleFight: false }
   ]);
 
   const [filterLeft, setFilterLeft] = useState<WeightClass | 'ALL'>('ALL');
@@ -74,7 +77,7 @@ export const MatchmakingView: React.FC<MatchmakingViewProps> = ({
 
   const addMatch = () => {
     if (cardLocked) return;
-    setMatches(prev => [...prev, { id: makeId(), redId: null, blueId: null }]);
+    setMatches(prev => [...prev, { id: makeId(), redId: null, blueId: null, section: 'MAIN_CARD', isTitleFight: false }]);
   };
 
   const removeMatch = (id: string) => {
@@ -99,6 +102,16 @@ export const MatchmakingView: React.FC<MatchmakingViewProps> = ({
       if (corner === 'red') return { ...m, redId: null };
       return { ...m, blueId: null };
     }));
+  };
+
+  const setMatchSection = (matchId: string, section: CardSection) => {
+    if (cardLocked) return;
+    setMatches(prev => prev.map(m => m.id === matchId ? { ...m, section, isTitleFight: section === 'MAIN_EVENT' ? m.isTitleFight : false } : m));
+  };
+
+  const toggleTitleFight = (matchId: string) => {
+    if (cardLocked) return;
+    setMatches(prev => prev.map(m => m.id === matchId ? { ...m, isTitleFight: !m.isTitleFight } : m));
   };
 
   const handleDrop = (matchId: string, corner: 'red' | 'blue', e: React.DragEvent) => {
@@ -174,6 +187,64 @@ export const MatchmakingView: React.FC<MatchmakingViewProps> = ({
     );
   };
 
+  const renderMatchCard = (match: BuilderMatch, displayNumber: number) => {
+    const red = getFighter(match.redId);
+    const blue = getFighter(match.blueId);
+    const bothFilled = !!red && !!blue;
+    const weightMismatch = bothFilled && red!.weightClass !== blue!.weightClass;
+
+    return (
+      <div key={match.id} className="bg-[#1c1b1b] brutal-border p-4 flex flex-col gap-3 min-w-0">
+        <div className="flex justify-between items-center gap-2 flex-wrap">
+          <span className="font-label-caps text-xs text-[#a09e9e] font-bold uppercase">PELEA #{displayNumber}</span>
+          <div className="flex items-center gap-2 flex-wrap">
+            {match.section === 'MAIN_EVENT' && (
+              <button
+                onClick={() => toggleTitleFight(match.id)}
+                disabled={cardLocked}
+                className={`px-2.5 py-1 font-label-caps text-[10px] uppercase brutal-border transition-colors flex items-center gap-1 disabled:opacity-40 ${
+                  match.isTitleFight ? 'bg-[#ffb4ac] text-black font-bold' : 'bg-[#2a2a2a] text-[#c8c6c5]'
+                }`}
+              >
+                <Trophy className="w-3 h-3" />
+                {match.isTitleFight ? 'PELEA POR EL TÍTULO' : 'MARCAR COMO TÍTULO'}
+              </button>
+            )}
+            <select
+              value={match.section}
+              onChange={(e) => setMatchSection(match.id, e.target.value as CardSection)}
+              disabled={cardLocked}
+              className="bg-[#131313] text-[#e5e2e1] brutal-border px-2 py-1 font-label-caps text-[10px] uppercase focus:outline-none disabled:opacity-40"
+            >
+              {SECTIONS.map(s => <option key={s.key} value={s.key}>{s.label}</option>)}
+            </select>
+            {!cardLocked && (
+              <button onClick={() => removeMatch(match.id)} className="p-1 bg-[#2a2a2a] hover:bg-[#e61c24] text-white" title="Eliminar pelea">
+                <Trash2 className="w-3.5 h-3.5" />
+              </button>
+            )}
+          </div>
+        </div>
+
+        <div className="grid grid-cols-[1fr_auto_1fr] gap-3 items-center min-w-0">
+          <div className="min-w-0">{renderSlot(match, 'red')}</div>
+          <span className="font-display-lg text-2xl text-[#e61c24] leading-none">VS</span>
+          <div className="min-w-0">{renderSlot(match, 'blue')}</div>
+        </div>
+
+        {weightMismatch && (
+          <div className="font-label-caps text-[10px] text-[#eab308] text-center uppercase">⚠ Catchweight · pesos distintos</div>
+        )}
+
+        {match.isTitleFight && match.section === 'MAIN_EVENT' && (
+          <div className="font-label-caps text-[10px] text-[#ffb4ac] text-center uppercase font-bold">🏆 PELEA POR EL CAMPEONATO</div>
+        )}
+      </div>
+    );
+  };
+
+  let runningNumber = 0;
+
   return (
     <div className="w-full flex flex-col gap-6">
       {/* Header */}
@@ -184,7 +255,7 @@ export const MatchmakingView: React.FC<MatchmakingViewProps> = ({
             OCTAGON MATCHMAKER
           </h1>
           <p className="font-label-caps text-xs text-[#a09e9e] mt-1">
-            ARMA LA CARTELERA ARRASTRANDO LUCHADORES Y FILTRA POR PESO
+            ARMA LA CARTELERA, ASIGNA CADA PELEA A SU SECCIÓN Y FILTRA POR PESO
           </p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
@@ -227,47 +298,23 @@ export const MatchmakingView: React.FC<MatchmakingViewProps> = ({
           </div>
         </div>
 
-        {/* CENTER: MATCH BUILDER */}
+        {/* CENTER: MATCH BUILDER, grouped by section */}
         <div className="lg:col-span-6 flex flex-col gap-3 min-w-0">
-          {matches.map((match, idx) => {
-            const red = getFighter(match.redId);
-            const blue = getFighter(match.blueId);
-            const bothFilled = !!red && !!blue;
-            const weightMismatch = bothFilled && red!.weightClass !== blue!.weightClass;
-            const section = getSection(idx);
-            const isFirstOfSection = idx === 0 || getSection(idx - 1).label !== section.label;
-
+          {SECTIONS.map(section => {
+            const inSection = matches.filter(m => m.section === section.key);
+            if (inSection.length === 0) return null;
             return (
-              <React.Fragment key={match.id}>
-                {isFirstOfSection && (
-                  <div
-                    className="font-label-caps text-xs font-bold uppercase text-center py-2 brutal-border tracking-widest"
-                    style={{ backgroundColor: section.color, color: section.textColor }}
-                  >
-                    {section.label}
-                  </div>
-                )}
-
-                <div className="bg-[#1c1b1b] brutal-border p-4 flex flex-col gap-3 min-w-0">
-                  <div className="flex justify-between items-center">
-                    <span className="font-label-caps text-xs text-[#a09e9e] font-bold uppercase">PELEA #{idx + 1}</span>
-                    {!cardLocked && (
-                      <button onClick={() => removeMatch(match.id)} className="p-1 bg-[#2a2a2a] hover:bg-[#e61c24] text-white" title="Eliminar pelea">
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
-                    )}
-                  </div>
-
-                  <div className="grid grid-cols-[1fr_auto_1fr] gap-3 items-center min-w-0">
-                    <div className="min-w-0">{renderSlot(match, 'red')}</div>
-                    <span className="font-display-lg text-2xl text-[#e61c24] leading-none">VS</span>
-                    <div className="min-w-0">{renderSlot(match, 'blue')}</div>
-                  </div>
-
-                  {weightMismatch && (
-                    <div className="font-label-caps text-[10px] text-[#eab308] text-center uppercase">⚠ Catchweight · pesos distintos</div>
-                  )}
+              <React.Fragment key={section.key}>
+                <div
+                  className="font-label-caps text-xs font-bold uppercase text-center py-2 brutal-border tracking-widest"
+                  style={{ backgroundColor: section.color, color: section.textColor }}
+                >
+                  {section.label}
                 </div>
+                {inSection.map(m => {
+                  runningNumber += 1;
+                  return renderMatchCard(m, runningNumber);
+                })}
               </React.Fragment>
             );
           })}
@@ -286,21 +333,21 @@ export const MatchmakingView: React.FC<MatchmakingViewProps> = ({
             <span className="font-label-caps text-xs text-[#e5e2e1] font-bold uppercase block mb-2">DESGLOSE DE LA CARTELERA</span>
             {matches.length === 0 && <span className="font-label-caps text-[10px] text-[#767575]">No hay peleas agregadas.</span>}
             <div className="flex flex-col gap-1.5">
-              {matches.map((m, i) => {
+              {SECTIONS.flatMap(section => matches.filter(m => m.section === section.key).map(m => {
                 const red = getFighter(m.redId);
                 const blue = getFighter(m.blueId);
-                const section = getSection(i);
                 return (
                   <div key={m.id} className="flex items-center bg-[#131313] px-3 py-2 brutal-border font-label-caps text-[10px] uppercase gap-2 min-w-0">
                     <span className="px-1.5 py-0.5 flex-shrink-0" style={{ backgroundColor: section.color, color: section.textColor }}>
                       {section.label}
                     </span>
+                    {m.isTitleFight && <Trophy className="w-3 h-3 text-[#ffb4ac] flex-shrink-0" />}
                     <span className="text-[#e61c24] flex-1 text-right truncate">{red ? red.lastName : '— SIN ASIGNAR —'}</span>
                     <span className="text-white px-1 flex-shrink-0">VS</span>
                     <span className="text-[#60a5fa] flex-1 truncate">{blue ? blue.lastName : '— SIN ASIGNAR —'}</span>
                   </div>
                 );
-              })}
+              }))}
             </div>
           </div>
         </div>
