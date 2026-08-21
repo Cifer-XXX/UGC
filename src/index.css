@@ -1,0 +1,122 @@
+@import "tailwindcss";
+
+@layer base {
+  :root {
+    --font-bebas: 'Bebas Neue', sans-serif;
+    --font-archivo: 'Archivo Narrow', sans-serif;
+    --font-mono: 'JetBrains Mono', monospace;
+  }
+
+  body {
+    font-family: var(--font-archivo);
+    background-color: #131313;
+    color: #e5e2e1;
+  }
+}
+
+.font-headline-lg {
+  font-family: 'Bebas Neue', sans-serif;
+  letter-spacing: 0.02em;
+}
+
+.font-headline-md {
+  font-family: 'Bebas Neue', sans-serif;
+  letter-spacing: 0.02em;
+}
+
+.font-headline-sm {
+  font-family: 'Bebas Neue', sans-serif;
+  letter-spacing: 0.02em;
+}
+
+.font-display-lg {
+  font-family: 'Bebas Neue', sans-serif;
+  letter-spacing: -0.01em;
+}
+
+.font-body-md {
+  font-family: 'Archivo Narrow', sans-serif;
+}
+
+.font-body-lg {
+  font-family: 'Archivo Narrow', sans-serif;
+}
+
+.font-label-caps {
+  font-family: 'JetBrains Mono', monospace;
+  letter-spacing: 0.1em;
+}
+
+.brutal-border {
+  border: 1px solid #333333;
+}
+
+.brutal-border-red {
+  border: 1px solid #e61c24;
+}
+
+.brutal-border-bottom {
+  border-bottom: 2px solid #333333;
+}
+
+.brutal-cut {
+  clip-path: polygon(10px 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%, 0 10px);
+}
+
+.brutal-cut-sm {
+  clip-path: polygon(6px 0, 100% 0, 100% calc(100% - 6px), calc(100% - 6px) 100%, 0 100%, 0 6px);
+}
+
+.brutal-cut-lg {
+  clip-path: polygon(16px 0, 100% 0, 100% calc(100% - 16px), calc(100% - 16px) 100%, 0 100%, 0 16px);
+}
+
+.cage-bg {
+  background-image: radial-gradient(#333333 1px, transparent 1px), radial-gradient(#333333 1px, transparent 1px);
+  background-size: 20px 20px;
+  background-position: 0 0, 10px 10px;
+  opacity: 0.15;
+}
+
+.glitch-hover {
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.glitch-hover:hover {
+  transform: translate(-2px, -2px);
+  box-shadow: 4px 4px 0px #e61c24;
+}
+
+.glitch-hover-white:hover {
+  transform: translate(-2px, -2px);
+  box-shadow: 4px 4px 0px #ffffff;
+}
+
+.fighter-image-hover {
+  filter: grayscale(100%);
+  transition: filter 0.4s ease, transform 0.4s ease;
+}
+
+.fighter-image-hover:hover,
+.group:hover .fighter-image-hover {
+  filter: grayscale(0%);
+  transform: scale(1.02);
+}
+
+/* Custom scrollbar for brutalist theme */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #0e0e0e;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #353534;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #e61c24;
+}

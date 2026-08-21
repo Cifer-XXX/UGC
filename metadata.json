@@ -1,0 +1,6 @@
+{
+  "name": "Ultimate Gakuran Championship",
+  "description": "Ultimate Gakuran Championship Manager - Professional combat sports promotion management platform featuring fighter profiles, contract negotiations, matchmaking simulator, and rankings.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
