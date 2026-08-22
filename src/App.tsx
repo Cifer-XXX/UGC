@@ -219,6 +219,7 @@ export default function App() {
             initialBlueCornerId={matchmakingBlueCornerId}
             onViewFighterProfile={handleSelectFighter}
             onRecordFightResult={handleRecordFightResult}
+            onNavigateToHistory={() => setCurrentTab('HISTORIA')}
           />
         )}
 
