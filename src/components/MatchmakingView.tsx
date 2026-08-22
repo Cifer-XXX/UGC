@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
-import { Fighter, WeightClass } from '../types';
-import { Swords, Trophy, UserCheck, Lock, Unlock, Plus, Trash2, X, Search } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { UgcDivision, RankedFighterItem, Fighter } from '../types';
+import { Swords, Trophy, UserCheck, Lock, Unlock, Plus, Trash2, X, Search, RefreshCw } from 'lucide-react';
 
 interface MatchmakingViewProps {
   fighters: Fighter[];
@@ -20,15 +20,24 @@ interface BuilderMatch {
   isTitleFight: boolean;
 }
 
-const WEIGHT_CLASSES: WeightClass[] = [
-  'FLYWEIGHT (125 LBS)',
-  'BANTAMWEIGHT (135 LBS)',
-  'FEATHERWEIGHT (145 LBS)',
-  'LIGHTWEIGHT (155 LBS)',
-  'WELTERWEIGHT (170 LBS)',
-  'MIDDLEWEIGHT (185 LBS)',
-  'LIGHT HEAVYWEIGHT (205 LBS)',
-  'HEAVYWEIGHT (265 LBS)'
+interface RegisteredFighter {
+  id: string;
+  name: string;
+  nickname?: string;
+  imageUrl: string;
+  record: string;
+  streak: string;
+  divisionId: UgcDivision;
+  divisionLabel: string;
+  clubName?: string;
+}
+
+const RANKINGS_STORAGE_KEY = 'ugc_division_rankings_v3_clubs';
+
+const DIVISION_META: { id: UgcDivision; label: string; color: string }[] = [
+  { id: 'PESO PLUMA (1.50 M O MENOS - 1.69 M)', label: 'PESO PLUMA', color: '#ffb4ac' },
+  { id: 'PESO WELTER (1.70 M - 1.89 M)', label: 'PESO WELTER', color: '#e61c24' },
+  { id: 'PESO PESADO (1.90 M - 2.10 M)', label: 'PESO PESADO', color: '#ff5449' }
 ];
 
 const makeId = () => `bout-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
@@ -39,36 +48,67 @@ const SECTIONS: { key: CardSection; label: string; color: string; textColor: str
   { key: 'PRELIMS', label: 'PRELIMINARES', color: '#eab308', textColor: '#422006' }
 ];
 
-export const MatchmakingView: React.FC<MatchmakingViewProps> = ({
-  fighters,
-  initialRedCornerId,
-  initialBlueCornerId,
-  onViewFighterProfile
-}) => {
+// Reads the same fighters that appear in the Rankings tab
+const loadRegisteredFighters = (): RegisteredFighter[] => {
+  try {
+    const raw = localStorage.getItem(RANKINGS_STORAGE_KEY);
+    if (!raw) return [];
+    const parsed: Record<string, RankedFighterItem[]> = JSON.parse(raw);
+    const out: RegisteredFighter[] = [];
+    DIVISION_META.forEach(div => {
+      const list = parsed[div.id] || [];
+      list.forEach(f => {
+        out.push({
+          id: f.id,
+          name: f.name,
+          nickname: f.nickname,
+          imageUrl: f.clubLogoUrl || f.imageUrl || '',
+          record: f.record,
+          streak: f.streak,
+          divisionId: div.id,
+          divisionLabel: div.label,
+          clubName: f.clubName
+        });
+      });
+    });
+    return out;
+  } catch (e) {
+    console.error('Error loading rankings for matchmaking', e);
+    return [];
+  }
+};
+
+export const MatchmakingView: React.FC<MatchmakingViewProps> = () => {
   const [cardLocked, setCardLocked] = useState<boolean>(false);
+  const [registered, setRegistered] = useState<RegisteredFighter[]>(() => loadRegisteredFighters());
 
   const [matches, setMatches] = useState<BuilderMatch[]>(() => [
-    { id: makeId(), redId: initialRedCornerId || null, blueId: initialBlueCornerId || null, section: 'MAIN_EVENT', isTitleFight: false }
+    { id: makeId(), redId: null, blueId: null, section: 'MAIN_EVENT', isTitleFight: false }
   ]);
 
-  const [filterLeft, setFilterLeft] = useState<WeightClass | 'ALL'>('ALL');
-  const [filterRight, setFilterRight] = useState<WeightClass | 'ALL'>('ALL');
+  // Only divisions that actually have registered fighters show up as filter options
+  const availableDivisions = DIVISION_META.filter(d => registered.some(f => f.divisionId === d.id));
+
+  const [filterLeft, setFilterLeft] = useState<UgcDivision | 'ALL'>('ALL');
+  const [filterRight, setFilterRight] = useState<UgcDivision | 'ALL'>('ALL');
   const [searchLeft, setSearchLeft] = useState('');
   const [searchRight, setSearchRight] = useState('');
   const [selectedFighterId, setSelectedFighterId] = useState<string | null>(null);
   const [dragOverSlot, setDragOverSlot] = useState<string | null>(null);
 
-  const getFighter = (id: string | null | undefined) => fighters.find(f => f.id === id) || null;
+  const refreshRoster = () => setRegistered(loadRegisteredFighters());
+
+  const getFighter = (id: string | null | undefined) => registered.find(f => f.id === id) || null;
 
   const assignedIds = new Set(
     matches.flatMap(m => [m.redId, m.blueId]).filter((id): id is string => !!id)
   );
 
-  const buildPool = (filter: WeightClass | 'ALL', search: string) =>
-    fighters.filter(f => {
+  const buildPool = (filter: UgcDivision | 'ALL', search: string) =>
+    registered.filter(f => {
       if (assignedIds.has(f.id)) return false;
-      if (filter !== 'ALL' && f.weightClass !== filter) return false;
-      if (search.trim() && !`${f.firstName} ${f.nickname} ${f.lastName}`.toLowerCase().includes(search.toLowerCase())) return false;
+      if (filter !== 'ALL' && f.divisionId !== filter) return false;
+      if (search.trim() && !`${f.name} ${f.nickname || ''} ${f.clubName || ''}`.toLowerCase().includes(search.toLowerCase())) return false;
       return true;
     });
 
@@ -127,7 +167,7 @@ export const MatchmakingView: React.FC<MatchmakingViewProps> = ({
     assignFighter(matchId, corner, selectedFighterId);
   };
 
-  const renderFighterListItem = (f: Fighter) => (
+  const renderFighterListItem = (f: RegisteredFighter) => (
     <div
       key={f.id}
       draggable={!cardLocked}
@@ -137,10 +177,10 @@ export const MatchmakingView: React.FC<MatchmakingViewProps> = ({
         selectedFighterId === f.id ? 'ring-2 ring-[#e61c24]' : ''
       } ${cardLocked ? 'opacity-50 cursor-not-allowed' : 'hover:border-[#e61c24]'}`}
     >
-      <img src={f.imageUrl} alt={f.lastName} className="w-10 h-10 object-cover brutal-border flex-shrink-0" referrerPolicy="no-referrer" />
+      <img src={f.imageUrl} alt={f.name} className="w-10 h-10 object-contain bg-[#0a0a0a] brutal-border flex-shrink-0 p-0.5" referrerPolicy="no-referrer" />
       <div className="min-w-0 flex-1 overflow-hidden">
-        <div className="font-label-caps text-[11px] text-white truncate">{f.firstName} "{f.nickname}" {f.lastName}</div>
-        <div className="font-label-caps text-[10px] text-[#767575] truncate">{f.record} · {f.weightClass.split(' (')[0]}</div>
+        <div className="font-label-caps text-[11px] text-white truncate">{f.name}{f.nickname ? ` "${f.nickname}"` : ''}</div>
+        <div className="font-label-caps text-[10px] text-[#767575] truncate">{f.record} · {f.divisionLabel}{f.clubName ? ` · ${f.clubName}` : ''}</div>
       </div>
     </div>
   );
@@ -154,14 +194,11 @@ export const MatchmakingView: React.FC<MatchmakingViewProps> = ({
     if (fighter) {
       return (
         <div className="relative bg-[#131313] brutal-border p-2 flex items-center gap-2 min-w-0 overflow-hidden">
-          <img src={fighter.imageUrl} alt={fighter.lastName} className="w-12 h-12 object-cover brutal-border flex-shrink-0" referrerPolicy="no-referrer" />
+          <img src={fighter.imageUrl} alt={fighter.name} className="w-12 h-12 object-contain bg-[#0a0a0a] brutal-border flex-shrink-0 p-0.5" referrerPolicy="no-referrer" />
           <div className="min-w-0 flex-1 overflow-hidden">
-            <div className="font-label-caps text-[11px] text-white truncate">{fighter.firstName} "{fighter.nickname}" {fighter.lastName}</div>
-            <div className="font-label-caps text-[10px] truncate" style={{ color: accent }}>{fighter.record} · {fighter.weightClass.split(' (')[0]}</div>
+            <div className="font-label-caps text-[11px] text-white truncate">{fighter.name}{fighter.nickname ? ` "${fighter.nickname}"` : ''}</div>
+            <div className="font-label-caps text-[10px] truncate" style={{ color: accent }}>{fighter.record} · {fighter.divisionLabel}</div>
           </div>
-          <button onClick={() => onViewFighterProfile(fighter.id)} className="p-1 bg-[#2a2a2a] hover:bg-[#353534] text-white flex-shrink-0" title="Ver perfil">
-            <UserCheck className="w-3.5 h-3.5" />
-          </button>
           {!cardLocked && (
             <button onClick={() => clearSlot(match.id, corner)} className="p-1 bg-[#2a2a2a] hover:bg-[#e61c24] text-white flex-shrink-0" title="Quitar">
               <X className="w-3.5 h-3.5" />
@@ -191,7 +228,7 @@ export const MatchmakingView: React.FC<MatchmakingViewProps> = ({
     const red = getFighter(match.redId);
     const blue = getFighter(match.blueId);
     const bothFilled = !!red && !!blue;
-    const weightMismatch = bothFilled && red!.weightClass !== blue!.weightClass;
+    const weightMismatch = bothFilled && red!.divisionId !== blue!.divisionId;
 
     return (
       <div key={match.id} className="bg-[#1c1b1b] brutal-border p-4 flex flex-col gap-3 min-w-0">
@@ -233,7 +270,7 @@ export const MatchmakingView: React.FC<MatchmakingViewProps> = ({
         </div>
 
         {weightMismatch && (
-          <div className="font-label-caps text-[10px] text-[#eab308] text-center uppercase">⚠ Catchweight · pesos distintos</div>
+          <div className="font-label-caps text-[10px] text-[#eab308] text-center uppercase">⚠ Catchweight · divisiones distintas</div>
         )}
 
         {match.isTitleFight && match.section === 'MAIN_EVENT' && (
@@ -255,10 +292,18 @@ export const MatchmakingView: React.FC<MatchmakingViewProps> = ({
             OCTAGON MATCHMAKER
           </h1>
           <p className="font-label-caps text-xs text-[#a09e9e] mt-1">
-            ARMA LA CARTELERA, ASIGNA CADA PELEA A SU SECCIÓN Y FILTRA POR PESO
+            ARMA LA CARTELERA CON LOS LUCHADORES REGISTRADOS EN EL RANKING
           </p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
+          <button
+            onClick={refreshRoster}
+            className="px-3 py-1.5 font-label-caps text-xs uppercase brutal-border transition-colors flex items-center gap-1 bg-[#2a2a2a] text-[#c8c6c5] hover:text-white"
+            title="Recargar luchadores registrados en el Ranking"
+          >
+            <RefreshCw className="w-3.5 h-3.5" />
+            ACTUALIZAR ROSTER
+          </button>
           <button
             onClick={() => setCardLocked(!cardLocked)}
             className={`px-3 py-1.5 font-label-caps text-xs uppercase brutal-border transition-colors flex items-center gap-1 ${cardLocked ? 'bg-[#22c55e] text-black font-bold' : 'bg-[#2a2a2a] text-[#c8c6c5]'}`}
@@ -268,6 +313,12 @@ export const MatchmakingView: React.FC<MatchmakingViewProps> = ({
           </button>
         </div>
       </div>
+
+      {registered.length === 0 && (
+        <div className="bg-[#1c1b1b] brutal-border p-6 text-center font-label-caps text-xs text-[#a09e9e] uppercase">
+          No hay luchadores registrados todavía. Ve a la pestaña RANKINGS e inscribe peleadores primero.
+        </div>
+      )}
 
       {/* 3-column layout: roster left / matches center / roster right */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
@@ -286,11 +337,11 @@ export const MatchmakingView: React.FC<MatchmakingViewProps> = ({
           </div>
           <select
             value={filterLeft}
-            onChange={(e) => setFilterLeft(e.target.value as WeightClass | 'ALL')}
+            onChange={(e) => setFilterLeft(e.target.value as UgcDivision | 'ALL')}
             className="bg-[#131313] text-[#e5e2e1] brutal-border px-2 py-1.5 font-label-caps text-xs uppercase focus:outline-none"
           >
-            <option value="ALL">TODOS LOS PESOS</option>
-            {WEIGHT_CLASSES.map(w => <option key={w} value={w}>{w}</option>)}
+            <option value="ALL">TODAS LAS DIVISIONES</option>
+            {availableDivisions.map(d => <option key={d.id} value={d.id}>{d.label}</option>)}
           </select>
           <div className="flex flex-col gap-1.5 max-h-[560px] overflow-y-auto pr-1">
             {poolLeft.length === 0 && <span className="font-label-caps text-[10px] text-[#767575] text-center py-4">Sin luchadores disponibles</span>}
@@ -342,9 +393,9 @@ export const MatchmakingView: React.FC<MatchmakingViewProps> = ({
                       {section.label}
                     </span>
                     {m.isTitleFight && <Trophy className="w-3 h-3 text-[#ffb4ac] flex-shrink-0" />}
-                    <span className="text-[#e61c24] flex-1 text-right truncate">{red ? red.lastName : '— SIN ASIGNAR —'}</span>
+                    <span className="text-[#e61c24] flex-1 text-right truncate">{red ? red.name : '— SIN ASIGNAR —'}</span>
                     <span className="text-white px-1 flex-shrink-0">VS</span>
-                    <span className="text-[#60a5fa] flex-1 truncate">{blue ? blue.lastName : '— SIN ASIGNAR —'}</span>
+                    <span className="text-[#60a5fa] flex-1 truncate">{blue ? blue.name : '— SIN ASIGNAR —'}</span>
                   </div>
                 );
               }))}
@@ -366,11 +417,11 @@ export const MatchmakingView: React.FC<MatchmakingViewProps> = ({
           </div>
           <select
             value={filterRight}
-            onChange={(e) => setFilterRight(e.target.value as WeightClass | 'ALL')}
+            onChange={(e) => setFilterRight(e.target.value as UgcDivision | 'ALL')}
             className="bg-[#131313] text-[#e5e2e1] brutal-border px-2 py-1.5 font-label-caps text-xs uppercase focus:outline-none"
           >
-            <option value="ALL">TODOS LOS PESOS</option>
-            {WEIGHT_CLASSES.map(w => <option key={w} value={w}>{w}</option>)}
+            <option value="ALL">TODAS LAS DIVISIONES</option>
+            {availableDivisions.map(d => <option key={d.id} value={d.id}>{d.label}</option>)}
           </select>
           <div className="flex flex-col gap-1.5 max-h-[560px] overflow-y-auto pr-1">
             {poolRight.length === 0 && <span className="font-label-caps text-[10px] text-[#767575] text-center py-4">Sin luchadores disponibles</span>}
