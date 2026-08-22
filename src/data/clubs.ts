@@ -9,6 +9,8 @@ import logoToman from '../assets/images/club_toman_gang_1787278154945.jpg';
 import logoWatchers from '../assets/images/club_watchers_journal_1787278165823.jpg';
 import logoOcult from '../assets/images/club_ocult_shadow_1787278176520.jpg';
 
+const naIcon = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 200'%3E%3Crect width='200' height='200' fill='%231a1a1a' stroke='%23444444' stroke-width='6'/%3E%3Ctext x='100' y='118' font-family='monospace' font-size='42' font-weight='bold' fill='%23767575' text-anchor='middle'%3EN%2FA%3C/text%3E%3C/svg%3E";
+
 export const GAKURAN_CLUBS: ClubItem[] = [
   {
     id: 'snakes-band',
@@ -78,7 +80,7 @@ export const GAKURAN_CLUBS: ClubItem[] = [
   },
   {
     id: 'los-toman',
-    name: 'TOMAN',
+    name: 'LOS TOMAN',
     subtitle: 'Club de Defensa Personal · 初代',
     category: 'Defensa Personal / Pandilla Fundadora',
     logoUrl: logoToman,
@@ -108,5 +110,55 @@ export const GAKURAN_CLUBS: ClubItem[] = [
     accentColor: '#78350f',
     description: 'Misterioso culto de sombras, rituales oscuros y conocimiento prohibido.',
     motto: 'Conocimiento · Sombras · Poder'
+  },
+  {
+    id: 'sin-club',
+    name: 'SIN CLUB',
+    subtitle: 'Peleador Independiente',
+    category: 'Sin Afiliación',
+    logoUrl: naIcon,
+    themeColor: '#767575',
+    accentColor: '#4b5563',
+    description: 'Peleador que no está afiliado a ningún club oficial del instituto.',
+    motto: 'N/A'
+  }
+];
+
+export const divisionRankings = [
+  {
+    division: 'WELTERWEIGHT (170 LBS)',
+    champion: 'Kamaru Usman',
+    fighters: [
+      { rank: 'C', name: 'Kamaru Usman', id: 'kamaru-usman', record: '21-3-0', streak: 'W3', movement: '0' },
+      { rank: '#1', name: 'Marcus "The Anvil" Vane', id: 'marcus-vane', record: '24-3-0', streak: 'W2', movement: '+1' },
+      { rank: '#2', name: 'Demetrious Silva', id: 'demetrious-silva', record: '22-2-0', streak: 'W1', movement: '-1' },
+      { rank: '#3', name: 'Josh "The Titan" Relley', id: 'josh-relley', record: '19-4-0', streak: 'L1', movement: '-1' },
+      { rank: '#4', name: 'Shavkat Rakhmonov', id: 'shavkat', record: '18-0-0', streak: 'W18', movement: '+2' },
+      { rank: '#5', name: 'Belal Muhammad', id: 'belal', record: '23-3-0', streak: 'W10', movement: '0' },
+      { rank: '#6', name: 'Jack Della Maddalena', id: 'jack-dm', record: '17-2-0', streak: 'W7', movement: '+1' },
+      { rank: '#7', name: 'Leon Edwards', id: 'leon-edwards', record: '22-4-0', streak: 'L1', movement: '-3' }
+    ]
+  },
+  {
+    division: 'LIGHTWEIGHT (155 LBS)',
+    champion: 'Islam Makhachev',
+    fighters: [
+      { rank: 'C', name: 'Islam Makhachev', id: 'islam-makhachev', record: '26-1-0', streak: 'W14', movement: '0' },
+      { rank: '#1', name: 'Arman Tsarukyan', id: 'arman-t', record: '22-3-0', streak: 'W4', movement: '+1' },
+      { rank: '#2', name: 'Charles Oliveira', id: 'charles-o', record: '34-10-0', streak: 'L1', movement: '-1' },
+      { rank: '#3', name: 'Justin Gaethje', id: 'justin-g', record: '25-5-0', streak: 'L1', movement: '0' },
+      { rank: '#4', name: 'Dustin Poirier', id: 'dustin-p', record: '30-9-0', streak: 'L1', movement: '0' },
+      { rank: '#5', name: 'Max Holloway', id: 'max-h', record: '26-7-0', streak: 'W3', movement: '+4' }
+    ]
+  },
+  {
+    division: 'LIGHT HEAVYWEIGHT (205 LBS)',
+    champion: 'Alex Pereira',
+    fighters: [
+      { rank: 'C', name: 'Alex Pereira', id: 'alex-pereira', record: '12-2-0', streak: 'W5', movement: '0' },
+      { rank: '#1', name: 'Magomed Ankalaev', id: 'ankalaev', record: '19-1-1', streak: 'W11', movement: '+1' },
+      { rank: '#2', name: 'Jiri Prochazka', id: 'jiri-p', record: '30-5-1', streak: 'L1', movement: '-1' },
+      { rank: '#3', name: 'Jan Blachowicz', id: 'jan-b', record: '29-10-1', streak: 'L1', movement: '0' }
+    ]
   }
 ];
