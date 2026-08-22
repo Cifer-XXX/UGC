@@ -80,7 +80,7 @@ export const GAKURAN_CLUBS: ClubItem[] = [
   },
   {
     id: 'los-toman',
-    name: 'LOS TOMAN',
+    name: 'TOMAN',
     subtitle: 'Club de Defensa Personal · 初代',
     category: 'Defensa Personal / Pandilla Fundadora',
     logoUrl: logoToman,
