@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { UgcDivision, RankedFighterItem, Fighter, ClubItem, FIGHTING_STYLES, FightingStyle, DIVISION_HEIGHTS, SeasonSnapshot } from '../types';
 import { GAKURAN_CLUBS } from '../data/clubs';
 import { 
@@ -193,8 +193,11 @@ export const RankingsView: React.FC<RankingsViewProps> = ({
   // Club selection
   const [selectedClubId, setSelectedClubId] = useState<string>(GAKURAN_CLUBS[0].id);
 
-  // Edit State
+   // Edit State
   const [editingFighter, setEditingFighter] = useState<{ fighter: RankedFighterItem; divisionId: UgcDivision } | null>(null);
+
+  // Cooldown para evitar sumar puntos por accidente con clics repetidos muy rápido
+  const pointsCooldownRef = useRef<Set<string>>(new Set());
 
   // Active division metadata (for standard division tabs)
   const activeDivInfo = activeTab !== 'P4P' 
@@ -363,7 +366,14 @@ export const RankingsView: React.FC<RankingsViewProps> = ({
   };
 
   // Add / Adjust Points for Fighter in Division (AUTO-SORTS IMMEDIATELY SO FIGHTERS WITH MORE POINTS CLIMB AUTOMATICALLY!)
-  const handleAddPoints = (fighterId: string, delta: number, divisionId?: UgcDivision) => {
+    const handleAddPoints = (fighterId: string, delta: number, divisionId?: UgcDivision) => {
+    // Si este peleador está en cooldown, ignora el clic (evita sumas accidentales por clics rápidos)
+    if (pointsCooldownRef.current.has(fighterId)) return;
+    pointsCooldownRef.current.add(fighterId);
+    setTimeout(() => {
+      pointsCooldownRef.current.delete(fighterId);
+    }, 400);
+
     const targetDiv = divisionId || (activeTab !== 'P4P' ? (activeTab as UgcDivision) : null);
     if (!targetDiv) return;
 
