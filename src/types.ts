@@ -229,7 +229,7 @@ export interface NotificationItem {
   read: boolean;
 }
 
-export type AppTab = 'DASHBOARD' | 'RANKINGS' | 'FIGHTERS' | 'MATCHMAKING' | 'HISTORIA';
+export type AppTab = 'RANKINGS' | 'FIGHTERS' | 'MATCHMAKING' | 'HISTORIA';
 
 export interface SeasonDivisionSnapshot {
   divisionId: UgcDivision;
