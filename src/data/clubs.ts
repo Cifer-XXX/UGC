@@ -8,6 +8,7 @@ import logoReika from '../assets/images/club_reika_elite_1787278139039.jpg';
 import logoToman from '../assets/images/club_toman_gang_1787278154945.jpg';
 import logoWatchers from '../assets/images/club_watchers_journal_1787278165823.jpg';
 import logoOcult from '../assets/images/club_ocult_shadow_1787278176520.jpg';
+import logoCupid from '../assets/images/Club_cupid_amor.jpg';
 
 const naIcon = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 200'%3E%3Crect width='200' height='200' fill='%231a1a1a' stroke='%23444444' stroke-width='6'/%3E%3Ctext x='100' y='118' font-family='monospace' font-size='42' font-weight='bold' fill='%23767575' text-anchor='middle'%3EN%2FA%3C/text%3E%3C/svg%3E";
 
@@ -80,7 +81,7 @@ export const GAKURAN_CLUBS: ClubItem[] = [
   },
   {
     id: 'los-toman',
-    name: 'TOMAN',
+    name: 'LOS TOMAN',
     subtitle: 'Club de Defensa Personal · 初代',
     category: 'Defensa Personal / Pandilla Fundadora',
     logoUrl: logoToman,
@@ -110,6 +111,17 @@ export const GAKURAN_CLUBS: ClubItem[] = [
     accentColor: '#78350f',
     description: 'Misterioso culto de sombras, rituales oscuros y conocimiento prohibido.',
     motto: 'Conocimiento · Sombras · Poder'
+  },
+  {
+    id: 'cupid-romance',
+    name: 'CUPID',
+    subtitle: 'Club de Romance',
+    category: 'Club Sentimental / Cupidos del Instituto',
+    logoUrl: logoCupid,
+    themeColor: '#dc2626',
+    accentColor: '#7f1d1d',
+    description: 'Casamenteros oficiales del instituto, expertos en flechas certeras y corazones conquistados.',
+    motto: 'Amor · Precisión · Destino'
   },
   {
     id: 'sin-club',
