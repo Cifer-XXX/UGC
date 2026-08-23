@@ -40,7 +40,7 @@ export const TopNavbar: React.FC<TopNavbarProps> = ({
     <nav className="bg-[#131313] border-b-2 border-[#333333] w-full top-0 z-50 flex justify-between items-center px-4 md:px-6 py-3.5 max-w-full mx-auto relative">
       {/* Brand Logo */}
       <button 
-        onClick={() => setCurrentTab('DASHBOARD')}
+        onClick={() => setCurrentTab('RANKINGS')}
         className="text-left focus:outline-none group cursor-pointer flex flex-col justify-center"
         id="navbar-brand-logo"
       >
@@ -54,7 +54,7 @@ export const TopNavbar: React.FC<TopNavbarProps> = ({
 
       {/* Navigation Tabs */}
       <div className="hidden md:flex items-center space-x-6 lg:space-x-8">
-        {(['DASHBOARD', 'RANKINGS', 'FIGHTERS', 'MATCHMAKING', 'HISTORIA'] as const).map((tab) => {
+        {(['RANKINGS', 'FIGHTERS', 'MATCHMAKING', 'HISTORIA'] as const).map((tab) => {
           const isActive = currentTab === tab;
           return (
             <button
