@@ -6,7 +6,6 @@ import { TopNavbar } from './components/TopNavbar';
 import { Footer } from './components/Footer';
 import { FighterProfile } from './components/FighterProfile';
 import { FightersDirectoryView } from './components/FightersDirectoryView';
-import { DashboardView } from './components/DashboardView';
 import { RankingsView } from './components/RankingsView';
 import { MatchmakingView } from './components/MatchmakingView';
 import { HistoryView } from './components/HistoryView';
@@ -161,7 +160,7 @@ export default function App() {
 
       {/* Mobile Navigation Tab Bar */}
       <div className="flex md:hidden bg-[#1c1b1b] border-b border-[#333333] px-2 py-2 justify-around z-40 sticky top-0 overflow-x-auto">
-        {(['DASHBOARD', 'RANKINGS', 'FIGHTERS', 'MATCHMAKING', 'HISTORIA'] as const).map((tab) => {
+        {(['RANKINGS', 'FIGHTERS', 'MATCHMAKING', 'HISTORIA'] as const).map((tab) => {
           const isActive = currentTab === tab;
           return (
             <button
@@ -187,16 +186,6 @@ export default function App() {
             onBookInMatchmaking={handleBookInMatchmaking}
             onOfferContract={(f) => setContractFighter(f)}
             onNavigateToRankings={() => setCurrentTab('RANKINGS')}
-          />
-        )}
-
-        {currentTab === 'DASHBOARD' && (
-          <DashboardView
-            fighters={fighters}
-            onSelectFighter={handleSelectFighter}
-            onNavigateToMatchmaking={() => setCurrentTab('MATCHMAKING')}
-            onNavigateToRankings={() => setCurrentTab('RANKINGS')}
-            onNavigateToFighters={() => setCurrentTab('FIGHTERS')}
           />
         )}
 
