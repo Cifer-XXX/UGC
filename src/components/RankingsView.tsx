@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { UgcDivision, RankedFighterItem, Fighter, ClubItem, FIGHTING_STYLES, FightingStyle, DIVISION_HEIGHTS, SeasonSnapshot } from '../types';
 import { GAKURAN_CLUBS } from '../data/clubs';
 import { 
@@ -29,7 +29,8 @@ import {
   Save,
   BookmarkCheck,
   History as HistoryIcon,
-  CheckCircle2
+  CheckCircle2,
+  Clock
 } from 'lucide-react';
 
 export type RankingTab = UgcDivision | 'P4P';
@@ -69,6 +70,9 @@ const DIVISIONS: DivisionMeta[] = [
 const LOCAL_STORAGE_KEY = 'ugc_division_rankings_v3_clubs';
 const P4P_CUSTOM_ORDER_KEY = 'ugc_p4p_custom_order_v1';
 export const SEASON_HISTORY_STORAGE_KEY = 'ugc_season_history_v1';
+
+// Cuánto dura el bloqueo de un peleador después de sumarle puntos (ms)
+const POINTS_LOCK_DURATION_MS = 3000;
 
 // Helper to auto-sort fighters descending by points (and secondarily by wins)
 export const sortByPointsDesc = (list: RankedFighterItem[]): RankedFighterItem[] => {
@@ -193,11 +197,12 @@ export const RankingsView: React.FC<RankingsViewProps> = ({
   // Club selection
   const [selectedClubId, setSelectedClubId] = useState<string>(GAKURAN_CLUBS[0].id);
 
-   // Edit State
+  // Edit State
   const [editingFighter, setEditingFighter] = useState<{ fighter: RankedFighterItem; divisionId: UgcDivision } | null>(null);
 
-  // Cooldown para evitar sumar puntos por accidente con clics repetidos muy rápido
-  const pointsCooldownRef = useRef<Set<string>>(new Set());
+  // Peleadores actualmente "bloqueados" tras sumarles puntos (evita clics accidentales
+  // mientras esperan a reordenarse en la tabla). Valor = true mientras está bloqueado.
+  const [lockedFighterIds, setLockedFighterIds] = useState<Record<string, boolean>>({});
 
   // Active division metadata (for standard division tabs)
   const activeDivInfo = activeTab !== 'P4P' 
@@ -365,18 +370,22 @@ export const RankingsView: React.FC<RankingsViewProps> = ({
     setFormStreak('W3');
   };
 
-  // Add / Adjust Points for Fighter in Division (AUTO-SORTS IMMEDIATELY SO FIGHTERS WITH MORE POINTS CLIMB AUTOMATICALLY!)
-    const handleAddPoints = (fighterId: string, delta: number, divisionId?: UgcDivision) => {
-    // Si este peleador está en cooldown, ignora el clic (evita sumas accidentales por clics rápidos)
-    if (pointsCooldownRef.current.has(fighterId)) return;
-    pointsCooldownRef.current.add(fighterId);
-    setTimeout(() => {
-      pointsCooldownRef.current.delete(fighterId);
-    }, 400);
+  // Add / Adjust Points for Fighter in Division.
+  // IMPORTANTE: los puntos se suman AL TOQUE, pero el reordenamiento (auto-sort) se
+  // retrasa 3 segundos, y ese peleador queda bloqueado para nuevos clics durante ese
+  // lapso — así evitas sumarle puntos a otro peleador por error mientras la tabla
+  // todavía no se ha movido.
+  const handleAddPoints = (fighterId: string, delta: number, divisionId?: UgcDivision) => {
+    // Si este peleador sigue bloqueado de un clic anterior, ignora el nuevo clic
+    if (lockedFighterIds[fighterId]) return;
 
     const targetDiv = divisionId || (activeTab !== 'P4P' ? (activeTab as UgcDivision) : null);
     if (!targetDiv) return;
 
+    // Bloquea a este peleador de inmediato
+    setLockedFighterIds(prev => ({ ...prev, [fighterId]: true }));
+
+    // Suma los puntos, pero SIN reordenar todavía (para que la fila no salte de golpe)
     setRankingsByDivision(prev => {
       const list = prev[targetDiv] || [];
       const updated = list.map(f => {
@@ -407,13 +416,29 @@ export const RankingsView: React.FC<RankingsViewProps> = ({
         }
         return f;
       });
-      // Auto-reorder so fighters with more points move up automatically!
-      const autoSorted = sortByPointsDesc(updated);
       return {
         ...prev,
-        [targetDiv]: autoSorted
+        [targetDiv]: updated
       };
     });
+
+    // Pasados 3 segundos: desbloquea al peleador Y recién ahí reordena la tabla
+    // por puntos, para que suba (o baje) de posición.
+    setTimeout(() => {
+      setLockedFighterIds(prev => {
+        const next = { ...prev };
+        delete next[fighterId];
+        return next;
+      });
+      setRankingsByDivision(prev => {
+        const list = prev[targetDiv] || [];
+        const autoSorted = sortByPointsDesc(list);
+        return {
+          ...prev,
+          [targetDiv]: autoSorted
+        };
+      });
+    }, POINTS_LOCK_DURATION_MS);
   };
 
   // Open Save Season Modal
@@ -1706,6 +1731,7 @@ export const RankingsView: React.FC<RankingsViewProps> = ({
                 const realIndex = currentFighterList.findIndex(f => f.id === item.id);
                 const isChamp = realIndex === 0;
                 const rankDisplay = isChamp ? 'C' : `#${realIndex + 1}`;
+                const isLocked = !!lockedFighterIds[item.id];
 
                 const clubInfo = GAKURAN_CLUBS.find(c => c.id === item.clubId) || {
                   name: item.clubName || 'SIN CLUB',
@@ -1836,16 +1862,23 @@ export const RankingsView: React.FC<RankingsViewProps> = ({
                             PTS
                           </span>
                         </div>
+                        {isLocked && (
+                          <span className="flex items-center gap-1 bg-[#1a1a1a] border border-[#444] text-[#a09e9e] text-[8px] font-label-caps font-bold px-1.5 py-0.5 rounded-xs">
+                            <Clock className="w-2.5 h-2.5 animate-pulse" />
+                            REORDENANDO...
+                          </span>
+                        )}
                       </div>
 
                       {/* Points Action Buttons with Tooltip Legends */}
-                      <div className="flex items-center gap-1 flex-wrap justify-center">
+                      <div className={`flex items-center gap-1 flex-wrap justify-center transition-opacity ${isLocked ? 'opacity-40' : ''}`}>
                         {/* Botón KO (+3 puntos) */}
                         <div className="relative group/btn">
                           <button
                             type="button"
                             onClick={() => handleAddPoints(item.id, 3)}
-                            className="bg-[#42090e] hover:bg-[#b0101a] active:scale-95 text-red-200 hover:text-white border border-red-700/80 hover:border-red-400 font-headline-sm text-xs px-2 py-1 brutal-cut-sm flex items-center gap-1 transition-all cursor-pointer shadow-md"
+                            disabled={isLocked}
+                            className="bg-[#42090e] hover:bg-[#b0101a] active:scale-95 disabled:cursor-not-allowed text-red-200 hover:text-white border border-red-700/80 hover:border-red-400 font-headline-sm text-xs px-2 py-1 brutal-cut-sm flex items-center gap-1 transition-all cursor-pointer shadow-md"
                             title="Puntos por Knock Out"
                           >
                             <Flame className="w-3 h-3 text-red-400 group-hover/btn:text-white" />
@@ -1867,7 +1900,8 @@ export const RankingsView: React.FC<RankingsViewProps> = ({
                           <button
                             type="button"
                             onClick={() => handleAddPoints(item.id, 2)}
-                            className="bg-[#382602] hover:bg-amber-500 active:scale-95 text-amber-300 hover:text-black border border-amber-600/80 hover:border-amber-300 font-headline-sm text-xs px-2 py-1 brutal-cut-sm flex items-center gap-1 transition-all cursor-pointer shadow-md"
+                            disabled={isLocked}
+                            className="bg-[#382602] hover:bg-amber-500 active:scale-95 disabled:cursor-not-allowed text-amber-300 hover:text-black border border-amber-600/80 hover:border-amber-300 font-headline-sm text-xs px-2 py-1 brutal-cut-sm flex items-center gap-1 transition-all cursor-pointer shadow-md"
                             title="Puntos por dominancia absoluta de la pelea"
                           >
                             <Crown className="w-3.5 h-3.5 fill-amber-400 text-amber-400 group-hover/btn:fill-black group-hover/btn:text-black" />
@@ -1889,7 +1923,8 @@ export const RankingsView: React.FC<RankingsViewProps> = ({
                           <button
                             type="button"
                             onClick={() => handleAddPoints(item.id, 1)}
-                            className="bg-[#032a13] hover:bg-emerald-600 active:scale-95 text-emerald-300 hover:text-black border border-emerald-600/80 hover:border-emerald-300 font-headline-sm text-xs px-2 py-1 brutal-cut-sm flex items-center gap-1 transition-all cursor-pointer shadow-md"
+                            disabled={isLocked}
+                            className="bg-[#032a13] hover:bg-emerald-600 active:scale-95 disabled:cursor-not-allowed text-emerald-300 hover:text-black border border-emerald-600/80 hover:border-emerald-300 font-headline-sm text-xs px-2 py-1 brutal-cut-sm flex items-center gap-1 transition-all cursor-pointer shadow-md"
                             title="Puntos por Knockdown"
                           >
                             <span className="font-bold">KD</span>
@@ -1911,7 +1946,7 @@ export const RankingsView: React.FC<RankingsViewProps> = ({
                           <button
                             type="button"
                             onClick={() => handleAddPoints(item.id, -1)}
-                            disabled={(item.points ?? 0) <= 0}
+                            disabled={isLocked || (item.points ?? 0) <= 0}
                             className="bg-[#1e1e1e] hover:bg-[#2e2e2e] active:scale-95 disabled:opacity-20 disabled:cursor-not-allowed text-[#888888] hover:text-white border border-[#444444] font-headline-sm text-xs px-1.5 py-1 brutal-cut-sm flex items-center transition-all cursor-pointer"
                             title="Restar 1 punto (-1)"
                           >
