@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { UgcDivision, RankedFighterItem, Fighter, ClubItem, FIGHTING_STYLES, FightingStyle, DIVISION_HEIGHTS, SeasonSnapshot } from '../types';
+import { UgcDivision, RankedFighterItem, Fighter, ClubItem, DIVISION_HEIGHTS, SeasonSnapshot } from '../types';
 import { GAKURAN_CLUBS } from '../data/clubs';
 import { 
   Trophy, 
@@ -185,11 +185,11 @@ export const RankingsView: React.FC<RankingsViewProps> = ({
   const [formName, setFormName] = useState('');
   const [formNickname, setFormNickname] = useState('');
   const [formHeight, setFormHeight] = useState('1.64 m');
-  const [formWins, setFormWins] = useState(10);
-  const [formLosses, setFormLosses] = useState(1);
+  const [formWins, setFormWins] = useState(0);
+  const [formLosses, setFormLosses] = useState(0);
   const [formDraws, setFormDraws] = useState(0);
   const [formStreak, setFormStreak] = useState('W4');
-  const [formStyle, setFormStyle] = useState<FightingStyle>('KURE');
+  const [formStyle, setFormStyle] = useState<string>('');
   
   // Target division for the form when in P4P tab
   const [formTargetDivision, setFormTargetDivision] = useState<UgcDivision>('PESO PLUMA (1.50 M O MENOS - 1.69 M)');
@@ -364,10 +364,11 @@ export const RankingsView: React.FC<RankingsViewProps> = ({
     // Reset Form
     setFormName('');
     setFormNickname('');
-    setFormWins(10);
-    setFormLosses(1);
+    setFormWins(0);
+    setFormLosses(0);
     setFormDraws(0);
     setFormStreak('W3');
+    setFormStyle('');
   };
 
   // Add / Adjust Points for Fighter in Division.
@@ -1266,17 +1267,13 @@ export const RankingsView: React.FC<RankingsViewProps> = ({
                 <label className="font-label-caps text-[11px] text-[#a09e9e] uppercase block mb-1">
                   Estilo / Disciplina
                 </label>
-                <select
+                <input
+                  type="text"
+                  placeholder="EJ: MUAY THAI / BJJ"
                   value={formStyle}
-                  onChange={(e) => setFormStyle(e.target.value as FightingStyle)}
-                  className="w-full bg-[#131313] brutal-border p-2 font-label-caps text-xs text-white uppercase focus:border-[#e61c24] focus:outline-none cursor-pointer"
-                >
-                  {FIGHTING_STYLES.map((style) => (
-                    <option key={style} value={style} className="bg-[#131313] text-white">
-                      {style}
-                    </option>
-                  ))}
-                </select>
+                  onChange={(e) => setFormStyle(e.target.value)}
+                  className="w-full bg-[#131313] brutal-border p-2 font-label-caps text-xs text-white uppercase focus:border-[#e61c24] focus:outline-none"
+                />
               </div>
             </div>
 
@@ -2267,20 +2264,16 @@ export const RankingsView: React.FC<RankingsViewProps> = ({
 
               <div>
                 <label className="font-label-caps text-[11px] text-[#a09e9e] block mb-1">Estilo de Pelea / Disciplina</label>
-                <select
-                  value={editingFighter.fighter.fightingStyle || 'BOXING'}
+                <input
+                  type="text"
+                  placeholder="EJ: MUAY THAI / BJJ"
+                  value={editingFighter.fighter.fightingStyle || ''}
                   onChange={(e) => setEditingFighter({
                     ...editingFighter,
                     fighter: { ...editingFighter.fighter, fightingStyle: e.target.value }
                   })}
-                  className="w-full bg-[#131313] brutal-border p-2 font-label-caps text-xs text-white uppercase cursor-pointer focus:border-[#e61c24] focus:outline-none"
-                >
-                  {FIGHTING_STYLES.map((style) => (
-                    <option key={style} value={style} className="bg-[#131313] text-white">
-                      {style}
-                    </option>
-                  ))}
-                </select>
+                  className="w-full bg-[#131313] brutal-border p-2 font-label-caps text-xs text-white uppercase focus:border-[#e61c24] focus:outline-none"
+                />
               </div>
 
               {/* Edit Club Affiliation */}
@@ -2358,3 +2351,4 @@ const CrownIcon = () => (
     <path d="M5 16L3 5l5.5 5L12 4l3.5 6L21 5l-2 11H5zm14 3c0 .6-.4 1-1 1H6c-.6 0-1-.4-1-1v-1h14v1z" />
   </svg>
 );
+
