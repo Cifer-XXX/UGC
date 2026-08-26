@@ -72,14 +72,15 @@ const P4P_CUSTOM_ORDER_KEY = 'ugc_p4p_custom_order_v1';
 export const SEASON_HISTORY_STORAGE_KEY = 'ugc_season_history_v1';
 
 // Cuánto dura el bloqueo de un peleador después de sumarle puntos (ms)
-const POINTS_LOCK_DURATION_MS = 3000;
+const POINTS_LOCK_DURATION_MS = 1000;
 
-// Helper to auto-sort fighters descending by points (and secondarily by wins)
+// Helper to auto-sort fighters descending by ASCENSO points (this is what determines
+// table position now — KO/Dominancia/KD points solo alimentan estadísticas, no el orden)
 export const sortByPointsDesc = (list: RankedFighterItem[]): RankedFighterItem[] => {
   return [...list].sort((a, b) => {
-    const ptsA = a.points ?? 0;
-    const ptsB = b.points ?? 0;
-    if (ptsB !== ptsA) return ptsB - ptsA;
+    const ascA = a.ascensoPoints ?? 0;
+    const ascB = b.ascensoPoints ?? 0;
+    if (ascB !== ascA) return ascB - ascA;
     // Tie breaker 1: Total wins
     const winsA = parseInt((a.record || '0-0-0').split('-')[0], 10) || 0;
     const winsB = parseInt((b.record || '0-0-0').split('-')[0], 10) || 0;
@@ -319,7 +320,7 @@ export const RankingsView: React.FC<RankingsViewProps> = ({
     }
   };
 
-  // Add Fighter (Auto-sorted by points)
+  // Add Fighter (Auto-sorted by Ascenso points)
   const handleAddFighter = (e: React.FormEvent) => {
     e.preventDefault();
     if (!formName.trim()) return;
@@ -346,6 +347,7 @@ export const RankingsView: React.FC<RankingsViewProps> = ({
       movement: 'NEW',
       isChampion: currentList.length === 0,
       points: 0,
+      ascensoPoints: 0,
       koCount: 0,
       kdCount: 0,
       dominanceCount: 0
@@ -371,22 +373,18 @@ export const RankingsView: React.FC<RankingsViewProps> = ({
     setFormStyle('');
   };
 
-  // Add / Adjust Points for Fighter in Division.
-  // IMPORTANTE: los puntos se suman AL TOQUE, pero el reordenamiento (auto-sort) se
-  // retrasa 3 segundos, y ese peleador queda bloqueado para nuevos clics durante ese
-  // lapso — así evitas sumarle puntos a otro peleador por error mientras la tabla
-  // todavía no se ha movido.
+  // Add / Adjust STAT Points (KO / Dominancia / KD) for Fighter in Division.
+  // Estos puntos alimentan las estadísticas del peleador (koCount, dominanceCount, kdCount, points)
+  // pero YA NO determinan la posición en la tabla — eso lo hace 'ascensoPoints' (ver función de abajo).
+  // Se suman al toque, pero el peleador queda bloqueado 1 segundo para evitar clics accidentales.
   const handleAddPoints = (fighterId: string, delta: number, divisionId?: UgcDivision) => {
-    // Si este peleador sigue bloqueado de un clic anterior, ignora el nuevo clic
     if (lockedFighterIds[fighterId]) return;
 
     const targetDiv = divisionId || (activeTab !== 'P4P' ? (activeTab as UgcDivision) : null);
     if (!targetDiv) return;
 
-    // Bloquea a este peleador de inmediato
     setLockedFighterIds(prev => ({ ...prev, [fighterId]: true }));
 
-    // Suma los puntos, pero SIN reordenar todavía (para que la fila no salte de golpe)
     setRankingsByDivision(prev => {
       const list = prev[targetDiv] || [];
       const updated = list.map(f => {
@@ -423,8 +421,43 @@ export const RankingsView: React.FC<RankingsViewProps> = ({
       };
     });
 
-    // Pasados 3 segundos: desbloquea al peleador Y recién ahí reordena la tabla
-    // por puntos, para que suba (o baje) de posición.
+    setTimeout(() => {
+      setLockedFighterIds(prev => {
+        const next = { ...prev };
+        delete next[fighterId];
+        return next;
+      });
+      // Nota: NO reordena aquí, porque estos puntos ya no afectan la posición
+    }, POINTS_LOCK_DURATION_MS);
+  };
+
+  // Add / Adjust ASCENSO Points — ESTOS son los que mueven la posición en la tabla.
+  // Igual que los de arriba: se suman al toque, el peleador se bloquea 1s, y RECIÉN
+  // al terminar ese segundo se reordena la tabla (para que no salte de golpe).
+  const handleAddAscensoPoints = (fighterId: string, delta: number, divisionId?: UgcDivision) => {
+    if (lockedFighterIds[fighterId]) return;
+
+    const targetDiv = divisionId || (activeTab !== 'P4P' ? (activeTab as UgcDivision) : null);
+    if (!targetDiv) return;
+
+    setLockedFighterIds(prev => ({ ...prev, [fighterId]: true }));
+
+    setRankingsByDivision(prev => {
+      const list = prev[targetDiv] || [];
+      const updated = list.map(f => {
+        if (f.id === fighterId) {
+          const currentAscenso = f.ascensoPoints ?? 0;
+          const newAscenso = Math.max(0, currentAscenso + delta);
+          return { ...f, ascensoPoints: newAscenso };
+        }
+        return f;
+      });
+      return {
+        ...prev,
+        [targetDiv]: updated
+      };
+    });
+
     setTimeout(() => {
       setLockedFighterIds(prev => {
         const next = { ...prev };
@@ -630,6 +663,7 @@ export const RankingsView: React.FC<RankingsViewProps> = ({
         movement: '0', 
         isChampion: true,
         points: 54,
+        ascensoPoints: 54,
         koCount: 12,
         dominanceCount: 6,
         kdCount: 6
@@ -650,6 +684,7 @@ export const RankingsView: React.FC<RankingsViewProps> = ({
         clubColor: getClub('snakes-band').themeColor,
         movement: '+1', 
         points: 42,
+        ascensoPoints: 42,
         koCount: 8,
         dominanceCount: 6,
         kdCount: 6
@@ -670,6 +705,7 @@ export const RankingsView: React.FC<RankingsViewProps> = ({
         clubColor: getClub('karasuno-voleibol').themeColor,
         movement: '-1', 
         points: 36,
+        ascensoPoints: 36,
         koCount: 6,
         dominanceCount: 5,
         kdCount: 8
@@ -694,6 +730,7 @@ export const RankingsView: React.FC<RankingsViewProps> = ({
         movement: '0', 
         isChampion: true,
         points: 72,
+        ascensoPoints: 72,
         koCount: 16,
         dominanceCount: 8,
         kdCount: 8
@@ -714,6 +751,7 @@ export const RankingsView: React.FC<RankingsViewProps> = ({
         clubColor: getClub('aoiba-apuestas').themeColor,
         movement: '+2', 
         points: 57,
+        ascensoPoints: 57,
         koCount: 11,
         dominanceCount: 8,
         kdCount: 8
@@ -734,6 +772,7 @@ export const RankingsView: React.FC<RankingsViewProps> = ({
         clubColor: getClub('hyaku-artes-marciales').themeColor,
         movement: '-1', 
         points: 48,
+        ascensoPoints: 48,
         koCount: 8,
         dominanceCount: 8,
         kdCount: 8
@@ -758,6 +797,7 @@ export const RankingsView: React.FC<RankingsViewProps> = ({
         movement: '0', 
         isChampion: true,
         points: 66,
+        ascensoPoints: 66,
         koCount: 14,
         dominanceCount: 9,
         kdCount: 6
@@ -778,6 +818,7 @@ export const RankingsView: React.FC<RankingsViewProps> = ({
         clubColor: getClub('reika-elite').themeColor,
         movement: '+1', 
         points: 51,
+        ascensoPoints: 51,
         koCount: 10,
         dominanceCount: 7,
         kdCount: 7
@@ -798,6 +839,7 @@ export const RankingsView: React.FC<RankingsViewProps> = ({
         clubColor: getClub('sera-watchers').themeColor,
         movement: '-1', 
         points: 45,
+        ascensoPoints: 45,
         koCount: 8,
         dominanceCount: 6,
         kdCount: 9
@@ -833,8 +875,8 @@ export const RankingsView: React.FC<RankingsViewProps> = ({
             </div>
             <p className="font-label-caps text-xs text-[#a09e9e] mt-1.5 flex items-center gap-2 flex-wrap">
               <span>CLASIFICACIÓN POR DIVISIONES DE ESTATURA & TOP LIBRA POR LIBRA (P4P)</span>
-              <span className="text-amber-400 font-bold bg-amber-950/60 px-2 py-0.5 border border-amber-600/40 rounded-xs">
-                ⚡ AUTO-RANKING POR PUNTOS ACTIVO
+              <span className="text-blue-400 font-bold bg-blue-950/60 px-2 py-0.5 border border-blue-600/40 rounded-xs">
+                ⬆ EL RANKING SE ORDENA POR PUNTOS DE ASCENSO
               </span>
             </p>
           </div>
@@ -1845,11 +1887,45 @@ export const RankingsView: React.FC<RankingsViewProps> = ({
                     </div>
 
                     {/* GESTIÓN DE PUNTOS */}
-                    <div className="col-span-4 sm:col-span-3 flex flex-col items-center justify-center gap-1 bg-[#121212]/90 p-1.5 brutal-border border-[#2d2d2d] rounded-xs shadow-inner">
-                      {/* Total Points Display */}
+                    <div className="col-span-4 sm:col-span-3 flex flex-col items-center justify-center gap-1.5 bg-[#121212]/90 p-1.5 brutal-border border-[#2d2d2d] rounded-xs shadow-inner">
+                      
+                      {/* --- PUNTOS ASCENSO (mueven la posición) --- */}
+                      <div className="flex items-center gap-1.5 w-full justify-center bg-blue-950/30 border border-blue-700/40 rounded-xs px-1.5 py-1">
+                        <span className="text-[8px] font-label-caps text-blue-300 font-bold uppercase tracking-wider flex items-center gap-0.5">
+                          <TrendingUp className="w-2.5 h-2.5" /> ASCENSO:
+                        </span>
+                        <div className="bg-[#050505] px-1.5 py-0.5 border border-blue-500/60 rounded-xs flex items-center gap-1">
+                          <span className="font-headline-sm text-sm text-blue-400 font-bold leading-none">
+                            {item.ascensoPoints ?? 0}
+                          </span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => handleAddAscensoPoints(item.id, 1)}
+                          disabled={isLocked}
+                          className="bg-blue-950 hover:bg-blue-600 active:scale-95 disabled:cursor-not-allowed disabled:opacity-40 text-blue-200 hover:text-white border border-blue-600/80 font-headline-sm text-[10px] px-1.5 py-0.5 brutal-cut-sm transition-all cursor-pointer"
+                          title="Sumar 1 punto de ascenso (mueve posición)"
+                        >
+                          +1
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleAddAscensoPoints(item.id, -1)}
+                          disabled={isLocked || (item.ascensoPoints ?? 0) <= 0}
+                          className="bg-[#1e1e1e] hover:bg-[#2e2e2e] active:scale-95 disabled:opacity-20 disabled:cursor-not-allowed text-[#888888] hover:text-white border border-[#444444] font-headline-sm text-[10px] px-1 py-0.5 brutal-cut-sm transition-all cursor-pointer"
+                          title="Restar 1 punto de ascenso"
+                        >
+                          <Minus className="w-2.5 h-2.5" />
+                        </button>
+                        {isLocked && (
+                          <Clock className="w-2.5 h-2.5 text-[#888] animate-pulse" />
+                        )}
+                      </div>
+
+                      {/* --- PUNTOS DE ESTADÍSTICAS (KO / Dominancia / KD) --- */}
                       <div className="flex items-center gap-1.5">
                         <span className="text-[9px] font-label-caps text-[#888888] font-bold uppercase tracking-wider">
-                          PUNTOS:
+                          STATS:
                         </span>
                         <div className="bg-[#050505] px-2 py-0.5 border border-amber-500/50 rounded-xs flex items-center gap-1 shadow-inner">
                           <span className="font-headline-sm text-base sm:text-lg text-amber-400 font-bold leading-none">
@@ -1859,12 +1935,6 @@ export const RankingsView: React.FC<RankingsViewProps> = ({
                             PTS
                           </span>
                         </div>
-                        {isLocked && (
-                          <span className="flex items-center gap-1 bg-[#1a1a1a] border border-[#444] text-[#a09e9e] text-[8px] font-label-caps font-bold px-1.5 py-0.5 rounded-xs">
-                            <Clock className="w-2.5 h-2.5 animate-pulse" />
-                            REORDENANDO...
-                          </span>
-                        )}
                       </div>
 
                       {/* Points Action Buttons with Tooltip Legends */}
@@ -1876,7 +1946,7 @@ export const RankingsView: React.FC<RankingsViewProps> = ({
                             onClick={() => handleAddPoints(item.id, 3)}
                             disabled={isLocked}
                             className="bg-[#42090e] hover:bg-[#b0101a] active:scale-95 disabled:cursor-not-allowed text-red-200 hover:text-white border border-red-700/80 hover:border-red-400 font-headline-sm text-xs px-2 py-1 brutal-cut-sm flex items-center gap-1 transition-all cursor-pointer shadow-md"
-                            title="Puntos por Knock Out"
+                            title="Puntos por Knock Out (solo estadísticas)"
                           >
                             <Flame className="w-3 h-3 text-red-400 group-hover/btn:text-white" />
                             <span>KO +3</span>
@@ -1886,7 +1956,7 @@ export const RankingsView: React.FC<RankingsViewProps> = ({
                           <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 hidden group-hover/btn:flex flex-col items-center pointer-events-none z-50">
                             <div className="bg-[#0c0c0c] border border-red-500 text-white font-label-caps text-[10px] px-2.5 py-1 shadow-2xl whitespace-nowrap brutal-cut-sm">
                               <span className="text-red-400 font-bold mr-1">💥 +3:</span>
-                              Puntos por Knock Out
+                              Puntos por Knock Out (estadística)
                             </div>
                             <div className="w-1.5 h-1.5 bg-[#0c0c0c] border-r border-b border-red-500 transform rotate-45 -mt-1"></div>
                           </div>
@@ -1899,7 +1969,7 @@ export const RankingsView: React.FC<RankingsViewProps> = ({
                             onClick={() => handleAddPoints(item.id, 2)}
                             disabled={isLocked}
                             className="bg-[#382602] hover:bg-amber-500 active:scale-95 disabled:cursor-not-allowed text-amber-300 hover:text-black border border-amber-600/80 hover:border-amber-300 font-headline-sm text-xs px-2 py-1 brutal-cut-sm flex items-center gap-1 transition-all cursor-pointer shadow-md"
-                            title="Puntos por dominancia absoluta de la pelea"
+                            title="Puntos por dominancia absoluta (solo estadísticas)"
                           >
                             <Crown className="w-3.5 h-3.5 fill-amber-400 text-amber-400 group-hover/btn:fill-black group-hover/btn:text-black" />
                             <span>+2</span>
@@ -1909,7 +1979,7 @@ export const RankingsView: React.FC<RankingsViewProps> = ({
                           <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 hidden group-hover/btn:flex flex-col items-center pointer-events-none z-50">
                             <div className="bg-[#0c0c0c] border border-amber-400 text-white font-label-caps text-[10px] px-2.5 py-1 shadow-2xl whitespace-nowrap brutal-cut-sm">
                               <span className="text-amber-400 font-bold mr-1">👑 +2:</span>
-                              Puntos por dominancia absoluta de la pelea
+                              Puntos por dominancia (estadística)
                             </div>
                             <div className="w-1.5 h-1.5 bg-[#0c0c0c] border-r border-b border-amber-400 transform rotate-45 -mt-1"></div>
                           </div>
@@ -1922,7 +1992,7 @@ export const RankingsView: React.FC<RankingsViewProps> = ({
                             onClick={() => handleAddPoints(item.id, 1)}
                             disabled={isLocked}
                             className="bg-[#032a13] hover:bg-emerald-600 active:scale-95 disabled:cursor-not-allowed text-emerald-300 hover:text-black border border-emerald-600/80 hover:border-emerald-300 font-headline-sm text-xs px-2 py-1 brutal-cut-sm flex items-center gap-1 transition-all cursor-pointer shadow-md"
-                            title="Puntos por Knockdown"
+                            title="Puntos por Knockdown (solo estadísticas)"
                           >
                             <span className="font-bold">KD</span>
                             <span className="text-[10px] opacity-80">+1</span>
@@ -1932,7 +2002,7 @@ export const RankingsView: React.FC<RankingsViewProps> = ({
                           <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 hidden group-hover/btn:flex flex-col items-center pointer-events-none z-50">
                             <div className="bg-[#0c0c0c] border border-emerald-400 text-white font-label-caps text-[10px] px-2.5 py-1 shadow-2xl whitespace-nowrap brutal-cut-sm">
                               <span className="text-emerald-400 font-bold mr-1">🥊 +1:</span>
-                              Puntos por Knockdown
+                              Puntos por Knockdown (estadística)
                             </div>
                             <div className="w-1.5 h-1.5 bg-[#0c0c0c] border-r border-b border-emerald-400 transform rotate-45 -mt-1"></div>
                           </div>
@@ -1945,14 +2015,14 @@ export const RankingsView: React.FC<RankingsViewProps> = ({
                             onClick={() => handleAddPoints(item.id, -1)}
                             disabled={isLocked || (item.points ?? 0) <= 0}
                             className="bg-[#1e1e1e] hover:bg-[#2e2e2e] active:scale-95 disabled:opacity-20 disabled:cursor-not-allowed text-[#888888] hover:text-white border border-[#444444] font-headline-sm text-xs px-1.5 py-1 brutal-cut-sm flex items-center transition-all cursor-pointer"
-                            title="Restar 1 punto (-1)"
+                            title="Restar 1 punto de estadística (-1)"
                           >
                             <Minus className="w-3 h-3" />
                           </button>
 
                           <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 hidden group-hover/btn:flex flex-col items-center pointer-events-none z-50">
                             <div className="bg-[#0c0c0c] border border-[#666] text-white font-label-caps text-[10px] px-2 py-1 shadow-2xl whitespace-nowrap brutal-cut-sm">
-                              Restar 1 punto
+                              Restar 1 punto de estadística
                             </div>
                             <div className="w-1.5 h-1.5 bg-[#0c0c0c] border-r border-b border-[#666] transform rotate-45 -mt-1"></div>
                           </div>
@@ -2219,9 +2289,22 @@ export const RankingsView: React.FC<RankingsViewProps> = ({
                 </div>
               </div>
 
-              <div className="grid grid-cols-3 gap-3">
+              <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="font-label-caps text-[11px] text-amber-400 font-bold block mb-1">Puntos Totales</label>
+                  <label className="font-label-caps text-[11px] text-blue-400 font-bold block mb-1">Puntos Ascenso (posición)</label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={editingFighter.fighter.ascensoPoints ?? 0}
+                    onChange={(e) => setEditingFighter({
+                      ...editingFighter,
+                      fighter: { ...editingFighter.fighter, ascensoPoints: Math.max(0, parseInt(e.target.value) || 0) }
+                    })}
+                    className="w-full bg-[#131313] brutal-border p-2 font-label-caps text-xs text-blue-400 font-bold"
+                  />
+                </div>
+                <div>
+                  <label className="font-label-caps text-[11px] text-amber-400 font-bold block mb-1">Puntos Estadística</label>
                   <input
                     type="number"
                     min="0"
@@ -2233,6 +2316,9 @@ export const RankingsView: React.FC<RankingsViewProps> = ({
                     className="w-full bg-[#131313] brutal-border p-2 font-label-caps text-xs text-amber-400 font-bold"
                   />
                 </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="font-label-caps text-[11px] text-[#a09e9e] block mb-1">
                     Récord (Victorias - Derrotas - Empates)
@@ -2351,4 +2437,3 @@ const CrownIcon = () => (
     <path d="M5 16L3 5l5.5 5L12 4l3.5 6L21 5l-2 11H5zm14 3c0 .6-.4 1-1 1H6c-.6 0-1-.4-1-1v-1h14v1z" />
   </svg>
 );
-
