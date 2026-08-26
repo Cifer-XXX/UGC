@@ -112,6 +112,7 @@ export interface RankedFighterItem {
   movement?: string;
   isChampion?: boolean;
   points?: number;
+  ascensoPoints?: number;
   koCount?: number;
   kdCount?: number;
   dominanceCount?: number;
