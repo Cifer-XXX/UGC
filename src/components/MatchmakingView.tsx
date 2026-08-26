@@ -91,8 +91,8 @@ const loadRegisteredFighters = (): RegisteredFighter[] => {
 
 const sortByPointsDesc = (list: RankedFighterItem[]): RankedFighterItem[] => {
   return [...list].sort((a, b) => {
-    const ptsA = a.points ?? 0;
-    const ptsB = b.points ?? 0;
+    const ptsA = a.ascensoPoints ?? 0;
+    const ptsB = b.ascensoPoints ?? 0;
     if (ptsB !== ptsA) return ptsB - ptsA;
     const winsA = parseInt((a.record || '0-0-0').split('-')[0], 10) || 0;
     const winsB = parseInt((b.record || '0-0-0').split('-')[0], 10) || 0;
