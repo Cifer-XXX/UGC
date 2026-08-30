@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { UgcDivision, RankedFighterItem, Fighter } from '../types';
 import { Swords, Trophy, Lock, Unlock, Plus, Trash2, X, Search, RefreshCw, Flame, Crown, Minus, Save, CheckCircle2, History as HistoryIcon } from 'lucide-react';
 
@@ -45,6 +45,9 @@ interface RegisteredFighter {
 
 const RANKINGS_STORAGE_KEY = 'ugc_division_rankings_v3_clubs';
 const FIGHT_CARD_HISTORY_KEY = 'ugc_fight_card_history_v1';
+// Guarda el estado ACTUAL de la cartelera que estás armando, para que no se pierda
+// al cambiar de pestaña (Rankings, Historia, etc.) y volver a Matchmaking.
+const MATCHMAKING_BUILDER_KEY = 'ugc_matchmaking_builder_v1';
 
 const DIVISION_META: { id: UgcDivision; label: string; color: string }[] = [
   { id: 'PESO PLUMA (1.50 M O MENOS - 1.69 M)', label: 'PESO PLUMA', color: '#ffb4ac' },
@@ -142,8 +145,7 @@ const applyResultToRankings = (
           dominanceCount: (f.dominanceCount ?? 0) + dom,
           kdCount: (f.kdCount ?? 0) + kd,
           record: nextRecord(f.record, result),
-          streak: nextStreak(f.streak, result),
-          movement: 'NEW'
+          streak: nextStreak(f.streak, result)
         };
       });
 
@@ -160,16 +162,51 @@ const applyResultToRankings = (
   }
 };
 
-export const MatchmakingView: React.FC<MatchmakingViewProps> = ({ onNavigateToHistory }) => {
-  const [cardLocked, setCardLocked] = useState<boolean>(false);
+const makeDefaultMatch = (redId: string | null = null, blueId: string | null = null): BuilderMatch => ({
+  id: makeId(), redId, blueId, section: 'MAIN_EVENT', isTitleFight: false,
+  status: 'SCHEDULED', redKo: 0, redDom: 0, redKd: 0, blueKo: 0, blueDom: 0, blueKd: 0
+});
+
+export const MatchmakingView: React.FC<MatchmakingViewProps> = ({ initialRedCornerId, initialBlueCornerId, onNavigateToHistory }) => {
+  // Carga la cartelera guardada (si existe) para que no se pierda al cambiar de pestaña
+  const [matches, setMatches] = useState<BuilderMatch[]>(() => {
+    try {
+      const saved = localStorage.getItem(MATCHMAKING_BUILDER_KEY);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed.matches) && parsed.matches.length > 0) {
+          return parsed.matches;
+        }
+      }
+    } catch (e) {
+      console.error('Error loading matchmaking builder state', e);
+    }
+    return [makeDefaultMatch(initialRedCornerId || null, initialBlueCornerId || null)];
+  });
+
+  const [cardLocked, setCardLocked] = useState<boolean>(() => {
+    try {
+      const saved = localStorage.getItem(MATCHMAKING_BUILDER_KEY);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        return !!parsed.cardLocked;
+      }
+    } catch (e) {
+      console.error('Error loading matchmaking builder state', e);
+    }
+    return false;
+  });
+
   const [registered, setRegistered] = useState<RegisteredFighter[]>(() => loadRegisteredFighters());
 
-  const [matches, setMatches] = useState<BuilderMatch[]>(() => [
-    {
-      id: makeId(), redId: null, blueId: null, section: 'MAIN_EVENT', isTitleFight: false,
-      status: 'SCHEDULED', redKo: 0, redDom: 0, redKd: 0, blueKo: 0, blueDom: 0, blueKd: 0
+  // Cada vez que cambie la cartelera o el estado de bloqueo, se guarda automáticamente
+  useEffect(() => {
+    try {
+      localStorage.setItem(MATCHMAKING_BUILDER_KEY, JSON.stringify({ matches, cardLocked }));
+    } catch (e) {
+      console.error('Error saving matchmaking builder state', e);
     }
-  ]);
+  }, [matches, cardLocked]);
 
   const availableDivisions = DIVISION_META.filter(d => registered.some(f => f.divisionId === d.id));
 
@@ -205,15 +242,18 @@ export const MatchmakingView: React.FC<MatchmakingViewProps> = ({ onNavigateToHi
 
   const addMatch = () => {
     if (cardLocked) return;
-    setMatches(prev => [...prev, {
-      id: makeId(), redId: null, blueId: null, section: 'MAIN_CARD', isTitleFight: false,
-      status: 'SCHEDULED', redKo: 0, redDom: 0, redKd: 0, blueKo: 0, blueDom: 0, blueKd: 0
-    }]);
+    setMatches(prev => [...prev, { ...makeDefaultMatch(), section: 'MAIN_CARD' }]);
   };
 
   const removeMatch = (id: string) => {
     if (cardLocked) return;
     setMatches(prev => prev.filter(m => m.id !== id));
+  };
+
+  const clearWholeCard = () => {
+    if (!window.confirm('¿Vaciar por completo la cartelera actual? Esto no se puede deshacer.')) return;
+    setMatches([makeDefaultMatch()]);
+    setCardLocked(false);
   };
 
   const assignFighter = (matchId: string, corner: 'red' | 'blue', fighterId: string) => {
@@ -405,6 +445,15 @@ export const MatchmakingView: React.FC<MatchmakingViewProps> = ({ onNavigateToHi
       );
     }
 
+    // Si el peleador guardado ya no existe en Rankings (fue borrado), muestra un aviso claro
+    if (fighterId && !fighter) {
+      return (
+        <div className="p-4 border-2 border-dashed border-amber-600/60 bg-amber-950/20 flex items-center justify-center text-center font-label-caps text-[10px] text-amber-400 uppercase">
+          Peleador ya no está en Rankings
+        </div>
+      );
+    }
+
     return (
       <div
         onDragOver={(e) => { e.preventDefault(); setDragOverSlot(slotKey); }}
@@ -583,6 +632,13 @@ export const MatchmakingView: React.FC<MatchmakingViewProps> = ({ onNavigateToHi
               <Save className="w-3.5 h-3.5" /> GUARDAR CARTELERA EN HISTORIA
             </button>
           )}
+          <button
+            onClick={clearWholeCard}
+            className="px-3 py-1.5 font-label-caps text-xs uppercase brutal-border transition-colors flex items-center gap-1 bg-[#2a1414] text-[#e61c24] hover:bg-[#3a1a1a]"
+            title="Vaciar por completo la cartelera actual y empezar una nueva"
+          >
+            <Trash2 className="w-3.5 h-3.5" /> NUEVA CARTELERA
+          </button>
         </div>
       </div>
 
